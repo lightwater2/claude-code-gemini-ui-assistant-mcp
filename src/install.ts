@@ -141,8 +141,29 @@ function printFallbackCommand(apiKey: string) {
 
 // ─── Main ──────────────────────────────────────────────────────────────────
 
+function parseArgs(args: string[]): { isProject: boolean; apiKey: string } {
+  let isProject = false;
+  let apiKey = '';
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+
+    if (arg === '--project') {
+      isProject = true;
+    } else if (arg.startsWith('--api-key=')) {
+      // --api-key=AIzaSy...
+      apiKey = arg.slice('--api-key='.length).trim();
+    } else if (arg === '--api-key' && i + 1 < args.length) {
+      // --api-key AIzaSy...
+      apiKey = args[++i].trim();
+    }
+  }
+
+  return { isProject, apiKey };
+}
+
 export async function runInstall(args: string[]) {
-  const isProject = args.includes('--project');
+  const { isProject, apiKey: argApiKey } = parseArgs(args);
   const insideSession = !!process.env.CLAUDECODE;
 
   console.log(`\nInstalling ${PACKAGE_NAME}...\n`);
@@ -157,10 +178,12 @@ export async function runInstall(args: string[]) {
     process.exit(1);
   }
 
-  // Step 2: Resolve API key
-  let apiKey = process.env.GEMINI_API_KEY?.trim() ?? '';
+  // Step 2: Resolve API key (priority: --api-key arg > env var > interactive prompt)
+  let apiKey = argApiKey || process.env.GEMINI_API_KEY?.trim() || '';
 
-  if (apiKey) {
+  if (argApiKey) {
+    console.log(`✅ GEMINI_API_KEY from --api-key argument`);
+  } else if (process.env.GEMINI_API_KEY) {
     console.log(`✅ GEMINI_API_KEY detected from environment`);
   } else {
     console.log(`🔑 Gemini API key required  (get one at https://aistudio.google.com/apikey)\n`);
