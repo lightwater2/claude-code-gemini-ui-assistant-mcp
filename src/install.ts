@@ -3,9 +3,11 @@ import { resolve, dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { homedir } from 'os';
 import { spawnSync } from 'child_process';
-import * as readline from 'readline';
+import { GoogleGenAI } from '@google/genai';
 
 const PACKAGE_NAME = 'claude-code-gemini-ui-assistant-mcp';
+
+// ─── Skill installation ────────────────────────────────────────────────────
 
 function findSkillTemplate(): string {
   const thisFile = fileURLToPath(import.meta.url);
@@ -23,43 +25,76 @@ function installSkill(targetDir: 'user' | 'project'): string {
       ? join(homedir(), '.claude', 'skills')
       : join(process.cwd(), '.claude', 'skills');
 
-  if (!existsSync(skillsDir)) {
-    mkdirSync(skillsDir, { recursive: true });
-  }
+  if (!existsSync(skillsDir)) mkdirSync(skillsDir, { recursive: true });
 
-  const templatePath = findSkillTemplate();
   const destPath = join(skillsDir, 'gemini-ui.md');
-  copyFileSync(templatePath, destPath);
+  copyFileSync(findSkillTemplate(), destPath);
   return destPath;
 }
 
-function promptApiKey(): Promise<string> {
-  return new Promise((resolve) => {
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
+// ─── Masked input (shows * per keystroke) ─────────────────────────────────
 
-    // Hide input while typing
-    const originalWrite = (rl as unknown as { output: { write: (s: string) => void } }).output.write.bind(
-      (rl as unknown as { output: { write: (s: string) => void } }).output
-    );
-    let muted = false;
-    (rl as unknown as { output: { write: (s: string) => void } }).output.write = (s: string) => {
-      if (!muted) originalWrite(s);
-      else if (s === '\r\n' || s === '\n') originalWrite(s);
+function promptSecret(label: string): Promise<string> {
+  return new Promise((resolve) => {
+    process.stdout.write(`  ${label}: `);
+
+    const chars: string[] = [];
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    process.stdin.setEncoding('utf8');
+
+    const onData = (char: string) => {
+      switch (char) {
+        case '\r':
+        case '\n':
+        case '\u0004': // Ctrl+D
+          process.stdin.setRawMode(false);
+          process.stdin.pause();
+          process.stdin.removeListener('data', onData);
+          process.stdout.write('\n');
+          resolve(chars.join(''));
+          break;
+
+        case '\u0003': // Ctrl+C
+          process.stdout.write('\n');
+          process.exit(0);
+          break;
+
+        case '\u007f': // Backspace (macOS)
+        case '\b':     // Backspace (Windows)
+          if (chars.length > 0) {
+            chars.pop();
+            process.stdout.write('\b \b');
+          }
+          break;
+
+        default:
+          chars.push(char);
+          process.stdout.write('*');
+      }
     };
 
-    process.stdout.write('  Enter your Gemini API key: ');
-    muted = true;
-    rl.question('', (answer) => {
-      muted = false;
-      process.stdout.write('\n');
-      rl.close();
-      resolve(answer.trim());
-    });
+    process.stdin.on('data', onData);
   });
 }
+
+// ─── API key validation ────────────────────────────────────────────────────
+
+async function validateApiKey(apiKey: string): Promise<boolean> {
+  try {
+    const client = new GoogleGenAI({ apiKey });
+    await client.models.generateContent({
+      model: 'gemini-2.0-flash',
+      contents: [{ role: 'user', parts: [{ text: 'hi' }] }],
+      config: { maxOutputTokens: 1 },
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ─── MCP registration ──────────────────────────────────────────────────────
 
 function registerMcp(apiKey: string): boolean {
   const result = spawnSync(
@@ -76,39 +111,32 @@ function registerMcp(apiKey: string): boolean {
   );
 
   if (result.error || result.status !== 0) {
-    const msg = result.stderr || result.error?.message || 'unknown error';
-    process.stderr.write(`  Registration failed: ${msg}\n`);
+    process.stderr.write(`  ${result.stderr || result.error?.message}\n`);
     return false;
   }
   return true;
 }
 
-function isInsideClaudeCode(): boolean {
-  return !!process.env.CLAUDECODE;
-}
-
-function printFallbackInstructions(apiKey?: string) {
-  const keyPlaceholder = apiKey ? apiKey : 'your-api-key';
-  console.log('\n  Run this in a new terminal to register the MCP server:');
-  console.log('');
+function printFallbackCommand(apiKey: string) {
+  console.log('\n  Run this in a new terminal:\n');
   console.log(`  claude mcp add gemini-ui \\`);
   console.log(`    --transport stdio \\`);
   console.log(`    --scope user \\`);
-  console.log(`    --env GEMINI_API_KEY=${keyPlaceholder} \\`);
-  console.log(`    -- npx -y ${PACKAGE_NAME}`);
-  console.log('');
+  console.log(`    --env GEMINI_API_KEY=${apiKey} \\`);
+  console.log(`    -- npx -y ${PACKAGE_NAME}\n`);
 }
+
+// ─── Main ──────────────────────────────────────────────────────────────────
 
 export async function runInstall(args: string[]) {
   const isProject = args.includes('--project');
-  const targetDir = isProject ? 'project' : 'user';
-  const insideSession = isInsideClaudeCode();
+  const insideSession = !!process.env.CLAUDECODE;
 
   console.log(`\nInstalling ${PACKAGE_NAME}...\n`);
 
   // Step 1: Install skill file
   try {
-    const destPath = installSkill(targetDir);
+    const destPath = installSkill(isProject ? 'project' : 'user');
     console.log(`✅ Skill installed: ${destPath}`);
     console.log(`   Invoke with /gemini-ui inside Claude Code\n`);
   } catch (err) {
@@ -116,34 +144,43 @@ export async function runInstall(args: string[]) {
     process.exit(1);
   }
 
-  // Step 2: Get API key
-  let apiKey = process.env.GEMINI_API_KEY || '';
+  // Step 2: Resolve API key
+  let apiKey = process.env.GEMINI_API_KEY?.trim() ?? '';
 
   if (apiKey) {
     console.log(`✅ GEMINI_API_KEY detected from environment`);
   } else {
-    console.log(`🔑 Gemini API key needed to register MCP server.`);
-    console.log(`   Get one at: https://aistudio.google.com/apikey\n`);
-    apiKey = await promptApiKey();
+    console.log(`🔑 Gemini API key required  (get one at https://aistudio.google.com/apikey)\n`);
+    apiKey = await promptSecret('Enter your Gemini API key');
   }
 
   if (!apiKey) {
     console.log(`\n⚠️  No API key provided — skipping MCP registration.`);
-    printFallbackInstructions();
-    console.log('Setup complete (partial). Add MCP manually when ready.\n');
+    console.log(`   Re-run with GEMINI_API_KEY set, or register manually.\n`);
     return;
   }
 
-  // Step 3: Register MCP server
+  // Step 3: Validate key
+  process.stdout.write(`\n⏳ Validating API key...`);
+  const valid = await validateApiKey(apiKey);
+
+  if (!valid) {
+    process.stdout.write(` ❌\n\n`);
+    console.log(`  The API key appears to be invalid or lacks permission.`);
+    console.log(`  Check your key at https://aistudio.google.com/apikey\n`);
+    process.exit(1);
+  }
+  process.stdout.write(` ✅\n`);
+
+  // Step 4: Register MCP server
   if (insideSession) {
-    // Cannot run claude CLI inside a Claude Code session
-    console.log(`⚠️  Running inside Claude Code — cannot auto-register.`);
-    printFallbackInstructions(apiKey);
-    console.log('Setup complete (partial). Run the command above in a new terminal.\n');
+    console.log(`\n⚠️  Running inside Claude Code — cannot auto-register.`);
+    printFallbackCommand(apiKey);
+    console.log(`Setup complete (partial). Run the command above in a new terminal.\n`);
     return;
   }
 
-  console.log(`\n⏳ Registering MCP server with Claude Code...`);
+  process.stdout.write(`⏳ Registering MCP server...\n`);
   const ok = registerMcp(apiKey);
 
   if (ok) {
@@ -152,6 +189,6 @@ export async function runInstall(args: string[]) {
     console.log(`Setup complete! 🎉\n`);
   } else {
     console.log(`\n⚠️  Auto-registration failed. Run manually:`);
-    printFallbackInstructions(apiKey);
+    printFallbackCommand(apiKey);
   }
 }
