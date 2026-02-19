@@ -1,5 +1,4 @@
 {
-  "model": "gemini-2.5-flash",
   "designContext": "This project uses a black & white design system. Primary: #000000, Background: #FFFFFF, Gray scale: gray-100 through gray-900. Typography: text-xs(12px) through text-4xl(36px), all in rem units. Cards use rounded-2xl with shadow-sm. Buttons: rounded-full for primary actions, rounded-lg for secondary.",
   "conventions": {
     "styling": "Tailwind CSS with design tokens — use token class names, not hardcoded hex values",

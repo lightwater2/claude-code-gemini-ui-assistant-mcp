@@ -1,7 +1,9 @@
 # claude-code-gemini-ui-assistant-mcp
 
-> MCP server that delegates React component generation to Gemini from Claude Code.
+> MCP server that delegates UI component generation to Gemini from Claude Code.
 > **Role separation**: Claude handles page structure, routing, and orchestration. Gemini focuses on individual component code generation.
+>
+> Model: **`gemini-3.1-pro-preview`**
 
 ## How It Works
 
@@ -50,9 +52,6 @@ GEMINI_API_KEY=AIzaSy... npx claude-code-gemini-ui-assistant-mcp install
 
 # Install skill to project level instead of user level
 npx claude-code-gemini-ui-assistant-mcp install --project
-
-# Combine flags
-npx claude-code-gemini-ui-assistant-mcp install --api-key=AIzaSy... --project
 ```
 
 **Key resolution priority:** `--api-key` arg → `GEMINI_API_KEY` env → interactive prompt
@@ -108,14 +107,14 @@ Verify: run `/mcp` inside Claude Code — `gemini-ui` should appear as active.
 
 ### `gemini_generate_component`
 
-Generate a new React TypeScript component from scratch.
+Generate a new UI component from scratch.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `name` | string | ✅ | PascalCase component name |
+| `name` | string | ✅ | Component name |
 | `description` | string | ✅ | What the component does |
-| `props` | string | | Props interface description |
-| `designNotes` | string | | Colors, layout, visual requirements |
+| `props` | string | | Props / parameters description |
+| `designNotes` | string | | Stack, colors, layout, visual requirements |
 | `references` | string | | Existing code to reference for patterns |
 | `layer` | enum | | FSD layer: `shared`/`entities`/`features`/`widgets` |
 
@@ -138,7 +137,7 @@ Review a component for design quality issues.
 | `code` | string | ✅ | Component code to review |
 | `context` | string | | Component purpose and screen context |
 
-Returns: numbered list of actionable improvements (hardcoded colors/px, missing a11y, inconsistencies).
+Returns: numbered list of actionable improvements (hardcoded values, missing a11y, inconsistencies).
 
 ---
 
@@ -154,17 +153,14 @@ Installing this package also registers a `/gemini-ui` skill in Claude Code. When
 
 ## Project-Specific Configuration
 
-Copy the example config to your project root:
+Place a `.gemini-ui-config.json` in your project root to inject design system context into every Gemini call automatically — no need to repeat it in `designNotes` each time.
 
 ```bash
-cp node_modules/claude-code-gemini-ui-assistant-mcp/.gemini-ui-config.example.json .gemini-ui-config.json
-# or download directly:
 curl -o .gemini-ui-config.json https://raw.githubusercontent.com/lightwater2/claude-code-gemini-ui-assistant-mcp/main/.gemini-ui-config.example.json
 ```
 
 ```json
 {
-  "model": "gemini-2.5-flash",
   "designContext": "Your design system description...",
   "conventions": {
     "styling": "Tailwind CSS with design tokens",
@@ -188,13 +184,7 @@ Point to a custom path via environment variable when registering the MCP server:
 --env GEMINI_UI_CONFIG=/path/to/.gemini-ui-config.json
 ```
 
-If no config file is found, the server runs in generic React + Tailwind mode.
-
----
-
-## Model
-
-This package uses **`gemini-3.1-pro-preview`** exclusively. The model is hardcoded and not configurable.
+If no config file is found, the server uses no project context and Gemini defaults to plain HTML + vanilla JS + CSS.
 
 ---
 
@@ -271,21 +261,21 @@ If no stack is specified anywhere, Gemini defaults to **plain HTML + vanilla JS 
 ## Example Workflow
 
 ```
-User: "Add a compatibility result card to the chat page"
+User: "Add a product card to the listing page"
 
 Claude:
-  1. Reads Chat.tsx and related components
-  2. Identifies: CompatibilityResultCard needed
+  1. Reads existing card components for patterns
+  2. Identifies: ProductCard component needed
   3. Calls gemini_generate_component({
-       name: "CompatibilityResultCard",
-       description: "Displays two saju compatibility score visually",
-       props: "score: number, elements: ElementMatch[], label: string",
-       designNotes: "rounded-2xl card, shadow-sm, element colors",
+       name: "ProductCard",
+       description: "Displays product image, name, price, and add-to-cart button",
+       props: "name, price, imageUrl, onAddToCart",
+       designNotes: "React + TypeScript + Tailwind, rounded-2xl, shadow-sm",
        references: "<existing card component code>",
        layer: "entities"
      })
   4. Receives component code from Gemini
-  5. Places at src/entities/compatibility/ui/CompatibilityResultCard.tsx
+  5. Places at src/entities/product/ui/ProductCard.tsx
   6. Wires up imports and page integration
 ```
 
