@@ -15,6 +15,14 @@ import {
   ReviewDesignSchema,
   reviewDesign,
 } from './tools/review-design.js';
+import {
+  GenerateComponentSetSchema,
+  generateComponentSet,
+} from './tools/generate-component-set.js';
+import {
+  ScreenshotToCodeSchema,
+  screenshotToCode,
+} from './tools/screenshot-to-code.js';
 import { runInstall, runUninstall } from './install.js';
 
 const cliArgs = process.argv.slice(2);
@@ -45,7 +53,7 @@ async function startServer() {
 
   const server = new McpServer({
     name: 'gemini-ui-assistant',
-    version: '1.0.0',
+    version: '2.0.0',
   });
 
   // Tool: gemini_generate_component
@@ -53,7 +61,8 @@ async function startServer() {
     'gemini_generate_component',
     {
       description:
-        'Ask Gemini to generate a single React TypeScript component from scratch. ' +
+        'Ask Gemini to generate a single UI component from scratch. ' +
+        'Stack-agnostic: works with any frontend framework (React, Vue, Svelte, plain HTML, etc.). ' +
         'Claude handles page structure and orchestration; Gemini focuses on component code generation.',
       inputSchema: GenerateComponentSchema,
     },
@@ -74,6 +83,7 @@ async function startServer() {
     {
       description:
         'Pass existing component code to Gemini with modification instructions. ' +
+        'Stack-agnostic: works with any frontend framework. ' +
         'Returns the complete modified component code.',
       inputSchema: ModifyComponentSchema,
     },
@@ -93,14 +103,60 @@ async function startServer() {
     'gemini_review_design',
     {
       description:
-        'Ask Gemini to review a React component for design quality issues: ' +
-        'hardcoded colors, px values, missing accessibility attributes, inconsistencies.',
+        'Ask Gemini to review a UI component for design quality issues: ' +
+        'hardcoded colors, px values, missing accessibility attributes, inconsistencies. ' +
+        'Stack-agnostic: works with any frontend framework.',
       inputSchema: ReviewDesignSchema,
     },
     async (input) => {
       try {
         const review = await reviewDesign(client, config, input);
         return { content: [{ type: 'text', text: review }] };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: 'text', text: `Error: ${message}` }], isError: true };
+      }
+    }
+  );
+
+  // Tool: gemini_generate_component_set
+  server.registerTool(
+    'gemini_generate_component_set',
+    {
+      description:
+        'Ask Gemini to generate multiple UI components as a cohesive set in one request. ' +
+        'Guarantees design consistency (colors, spacing, typography) across all components ' +
+        'because they are generated in a single Gemini context. ' +
+        'Use this instead of calling gemini_generate_component repeatedly when components must look unified. ' +
+        'Returns JSON: { "components": [{ "name": "...", "code": "..." }] }',
+      inputSchema: GenerateComponentSetSchema,
+    },
+    async (input) => {
+      try {
+        const result = await generateComponentSet(client, config, input);
+        return { content: [{ type: 'text', text: result }] };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: 'text', text: `Error: ${message}` }], isError: true };
+      }
+    }
+  );
+
+  // Tool: gemini_screenshot_to_code
+  server.registerTool(
+    'gemini_screenshot_to_code',
+    {
+      description:
+        'Send a screenshot or design image to Gemini Vision and receive UI code. ' +
+        'Analyzes layout, colors, typography, and interactive elements from the image. ' +
+        'Accepts base64-encoded PNG/JPG/WebP images. ' +
+        'Useful for converting Figma screenshots, mockups, or reference designs into code.',
+      inputSchema: ScreenshotToCodeSchema,
+    },
+    async (input) => {
+      try {
+        const code = await screenshotToCode(client, config, input);
+        return { content: [{ type: 'text', text: code }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return { content: [{ type: 'text', text: `Error: ${message}` }], isError: true };

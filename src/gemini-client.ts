@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
+import type { Part } from '@google/genai';
 import type { Config } from './config.js';
 
 let _client: GoogleGenAI | null = null;
@@ -31,6 +32,7 @@ export function createClient(config: Config): GoogleGenAI {
 export interface GenerateOptions {
   systemPrompt: string;
   userPrompt: string;
+  parts?: Part[];  // 멀티모달 콘텐츠 (이미지 + 텍스트) — screenshot_to_code용
   model: string;
   temperature?: number;
 }
@@ -39,11 +41,15 @@ export async function generateContent(
   client: GoogleGenAI,
   options: GenerateOptions
 ): Promise<string> {
-  const { systemPrompt, userPrompt, model, temperature = 0.7 } = options;
+  const { systemPrompt, userPrompt, parts, model, temperature = 0.7 } = options;
+
+  const contents = parts
+    ? [{ role: 'user' as const, parts }]
+    : [{ role: 'user' as const, parts: [{ text: userPrompt }] }];
 
   const response = await client.models.generateContent({
     model,
-    contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+    contents,
     config: {
       systemInstruction: systemPrompt,
       temperature,

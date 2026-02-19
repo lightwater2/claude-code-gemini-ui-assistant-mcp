@@ -1,22 +1,35 @@
 # claude-code-gemini-ui-assistant-mcp
 
-> MCP server that delegates UI component generation to Gemini from Claude Code.
-> **Role separation**: Claude handles page structure, routing, and orchestration. Gemini focuses on individual component code generation.
+> MCP server for collaborative UI generation: **Claude orchestrates, Gemini generates components**.
+> Claude handles page structure, routing, and integration. Gemini generates high-quality, design-consistent component code.
 >
-> Model: **`gemini-3.1-pro-preview`**
+> **v2.0**: Now supports component sets (batch generation with design consistency) and screenshot-to-code (multimodal vision).
 
-## How It Works
+## Collaboration Model
 
 ```
-User Request → Claude (orchestrator)
-                ├── Reads existing code
-                ├── Identifies components needed
-                ├── Calls gemini_generate_component → Gemini
-                │                                     (generates component code)
-                └── Integrates result into project
+User: "Make a payment page"
+
+Claude (orchestrator):
+  1. Reads existing code, identifies required components
+  2. Defines component specs (name, description, props)
+  3. ─── Gemini call ───────────────────────────────
+     gemini_generate_component_set({
+       pageContext: "Payment page with card input + order summary + button",
+       components: [
+         { name: "CardInputForm", description: "..." },
+         { name: "OrderSummary", description: "..." },
+         { name: "PaymentButton", description: "..." }
+       ]
+     })
+  4. ─── Receives JSON ──────────────────────────────
+     { components: [{ name, code }, ...] }
+  5. Creates each component at the correct file path
+  6. Writes the page file (Claude does this directly)
+  7. Wires imports, registers route
 ```
 
-Claude thinks about architecture. Gemini writes the component. You get the best of both.
+**Core principle**: Claude decides *what*, *where*, and *how to assemble*. Gemini handles *component code generation* only.
 
 ## Installation
 
@@ -103,20 +116,46 @@ Verify: run `/mcp` inside Claude Code — `gemini-ui` should appear as active.
 
 ---
 
-## MCP Tools
+## MCP Tools (5 tools)
 
 ### `gemini_generate_component`
 
-Generate a new UI component from scratch.
+Generate a single UI component from scratch. Stack-agnostic (React, Vue, Svelte, plain HTML, etc.).
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `name` | string | ✅ | Component name |
+| `name` | string | ✅ | Component name in PascalCase |
 | `description` | string | ✅ | What the component does |
 | `props` | string | | Props / parameters description |
 | `designNotes` | string | | Stack, colors, layout, visual requirements |
 | `references` | string | | Existing code to reference for patterns |
 | `layer` | enum | | FSD layer: `shared`/`entities`/`features`/`widgets` |
+
+### `gemini_generate_component_set` ⭐ NEW
+
+Generate multiple components as a **cohesive, design-consistent set** in one Gemini call. Unlike calling `generate_component` repeatedly, all components share the same context — guaranteeing consistent colors, spacing, and typography.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `pageContext` | string | ✅ | Page/screen description for design cohesion |
+| `components` | string | ✅ | JSON array: `[{ name, description, props? }]` |
+| `designNotes` | string | | Shared design requirements for all components |
+| `references` | string | | Existing code for pattern/style matching |
+
+Returns JSON: `{ "components": [{ "name": "...", "code": "..." }] }`
+
+### `gemini_screenshot_to_code` ⭐ NEW
+
+Send a screenshot or design image to Gemini Vision and receive UI code. Analyzes layout, colors, typography, and interactive elements.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `imageBase64` | string | ✅ | Base64-encoded image (PNG/JPG/WebP) |
+| `mimeType` | enum | | `image/png` / `image/jpeg` / `image/webp` (default: `image/png`) |
+| `description` | string | | Screenshot description and code generation intent |
+| `outputType` | enum | | `component` / `page` / `styles` (default: `component`) |
+| `designNotes` | string | | Stack, framework, design system constraints |
+| `references` | string | | Existing code patterns to match |
 
 ### `gemini_modify_component`
 
@@ -143,11 +182,17 @@ Returns: numbered list of actionable improvements (hardcoded values, missing a11
 
 ## Skill: `/gemini-ui`
 
-Installing this package also registers a `/gemini-ui` skill in Claude Code. When invoked, it instructs Claude to:
+Installing this package also registers a `/gemini-ui` skill in Claude Code. When invoked, it provides Claude with a **step-by-step orchestration guide**:
 
-- Delegate individual component generation to Gemini via the MCP tools
-- Focus Claude on page structure, file placement, imports, routing, and orchestration
-- Use `references` to pass existing components so Gemini matches your project's patterns
+- **Step 1 (Claude)**: Analyze existing code, identify required components, define specs
+- **Step 2 (Gemini)**: Generate components via `generate_component` or `generate_component_set`
+- **Step 3 (Claude)**: Place files at correct paths, write page file directly, wire imports and routing
+- **Step 4 (Claude)**: Optional review with `review_design`, refinement with `modify_component`
+
+Tool selection guide:
+- 1 component → `gemini_generate_component`
+- 2+ components needing design consistency → `gemini_generate_component_set`
+- Design image → `gemini_screenshot_to_code`
 
 ---
 
@@ -258,25 +303,62 @@ If no stack is specified anywhere, Gemini defaults to **plain HTML + vanilla JS 
 
 ---
 
-## Example Workflow
+## Example Workflows
+
+### Single component
 
 ```
 User: "Add a product card to the listing page"
 
 Claude:
   1. Reads existing card components for patterns
-  2. Identifies: ProductCard component needed
-  3. Calls gemini_generate_component({
+  2. Calls gemini_generate_component({
        name: "ProductCard",
        description: "Displays product image, name, price, and add-to-cart button",
        props: "name, price, imageUrl, onAddToCart",
        designNotes: "React + TypeScript + Tailwind, rounded-2xl, shadow-sm",
-       references: "<existing card component code>",
+       references: "<existing card component>",
        layer: "entities"
      })
-  4. Receives component code from Gemini
-  5. Places at src/entities/product/ui/ProductCard.tsx
-  6. Wires up imports and page integration
+  3. Places at src/entities/product/ui/ProductCard.tsx
+  4. Wires imports and page integration
+```
+
+### Multiple components (design-consistent set)
+
+```
+User: "Build a checkout page"
+
+Claude:
+  1. Designs page structure (3 sections needed)
+  2. Calls gemini_generate_component_set({
+       pageContext: "Checkout page: shipping form + order review + place-order button",
+       components: JSON.stringify([
+         { name: "ShippingForm", description: "Address + delivery method inputs" },
+         { name: "OrderReview", description: "Line items + subtotal + tax + total" },
+         { name: "PlaceOrderButton", description: "CTA button with loading state" }
+       ]),
+       designNotes: "React + TypeScript + Tailwind, clean minimal style",
+       references: "<existing form component>"
+     })
+  3. Parses JSON → creates 3 files at correct FSD paths
+  4. Writes CheckoutPage.tsx directly (imports all 3, adds routing)
+```
+
+### Screenshot to code
+
+```
+User: (shares Figma screenshot of a modal dialog)
+
+Claude:
+  1. Reads image as base64
+  2. Calls gemini_screenshot_to_code({
+       imageBase64: "<base64>",
+       description: "Figma screenshot of subscription upgrade modal",
+       outputType: "component",
+       designNotes: "React + TypeScript + Tailwind CSS"
+     })
+  3. Receives initial code, refines with project conventions
 ```
 
 ---

@@ -84,6 +84,37 @@ Focus on:
 
 Format your response as a numbered list of specific, actionable improvements.
 Be concise — one sentence per issue maximum.`,
+
+  componentSet: `
+## Your Task: Generate Component Set
+
+Generate multiple components as a cohesive set for a single page/feature.
+All components must share the same design language — consistent colors, spacing, typography, and visual style.
+
+**CRITICAL**: Return your response as valid JSON in this exact format:
+\`\`\`json
+{ "components": [{ "name": "ComponentName", "code": "...full component code..." }] }
+\`\`\`
+
+Rules:
+- Each component must be independently usable but visually cohesive with the others
+- Use the same color palette, spacing scale, and typography across all components
+- Do NOT include markdown fences inside the code values — only in the outer wrapper
+- Each code value must be the complete, self-contained component file content`,
+
+  screenshotToCode: `
+## Your Task: Analyze Image and Generate Code
+
+You are given a screenshot or design mockup. Analyze it carefully and generate code that accurately reproduces the UI.
+
+Steps:
+1. Identify the overall layout structure (flex, grid, columns)
+2. Note colors, typography, spacing, and visual hierarchy
+3. Identify interactive elements (buttons, inputs, links)
+4. Generate clean, production-ready code matching the visual design
+
+Output ONLY the component/page code — no markdown fences, no explanation.
+The code must be a single file that can be saved and used directly.`,
 };
 
 export type ToolType = keyof typeof TOOL_PROMPTS;

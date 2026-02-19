@@ -1,7 +1,7 @@
 {
   "name": "claude-code-gemini-ui-assistant-mcp",
-  "version": "1.5.0",
-  "description": "MCP server for Claude Code - delegates React component generation to Gemini",
+  "version": "2.0.0",
+  "description": "MCP server for Claude Code - collaborative UI generation: Claude orchestrates, Gemini generates components",
   "type": "module",
   "main": "build/index.js",
   "bin": {
@@ -17,10 +17,12 @@
     "mcp",
     "claude",
     "gemini",
-    "react",
     "ui",
     "component",
-    "tailwind"
+    "screenshot-to-code",
+    "multimodal",
+    "orchestration",
+    "component-generation"
   ],
   "author": "lightwater2",
   "repository": {
