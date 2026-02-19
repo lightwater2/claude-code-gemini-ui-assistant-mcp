@@ -25,9 +25,11 @@ function installSkill(targetDir: 'user' | 'project'): string {
       ? join(homedir(), '.claude', 'skills')
       : join(process.cwd(), '.claude', 'skills');
 
-  if (!existsSync(skillsDir)) mkdirSync(skillsDir, { recursive: true });
+  // Skills are directories containing SKILL.md
+  const skillDir = join(skillsDir, 'gemini-ui');
+  if (!existsSync(skillDir)) mkdirSync(skillDir, { recursive: true });
 
-  const destPath = join(skillsDir, 'gemini-ui.md');
+  const destPath = join(skillDir, 'SKILL.md');
   copyFileSync(findSkillTemplate(), destPath);
   return destPath;
 }
@@ -211,8 +213,11 @@ export function runUninstall() {
 
   console.log(`\nUninstalling ${PACKAGE_NAME}...\n`);
 
-  // Step 1: Remove skill files (user-level and project-level)
+  // Step 1: Remove skill directories (user-level and project-level)
   const skillPaths = [
+    join(homedir(), '.claude', 'skills', 'gemini-ui'),
+    join(process.cwd(), '.claude', 'skills', 'gemini-ui'),
+    // Legacy: flat .md file from older versions
     join(homedir(), '.claude', 'skills', 'gemini-ui.md'),
     join(process.cwd(), '.claude', 'skills', 'gemini-ui.md'),
   ];
@@ -220,13 +225,13 @@ export function runUninstall() {
   let skillRemoved = false;
   for (const p of skillPaths) {
     if (existsSync(p)) {
-      rmSync(p);
+      rmSync(p, { recursive: true, force: true });
       console.log(`✅ Skill removed: ${p}`);
       skillRemoved = true;
     }
   }
   if (!skillRemoved) {
-    console.log(`ℹ️  Skill file not found (already removed)`);
+    console.log(`ℹ️  Skill not found (already removed)`);
   }
 
   // Step 2: Remove MCP server registration
