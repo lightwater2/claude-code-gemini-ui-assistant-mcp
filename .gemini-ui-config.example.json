@@ -1,0 +1,17 @@
+{
+  "model": "gemini-2.5-flash",
+  "designContext": "This project uses a black & white design system. Primary: #000000, Background: #FFFFFF, Gray scale: gray-100 through gray-900. Typography: text-xs(12px) through text-4xl(36px), all in rem units. Cards use rounded-2xl with shadow-sm. Buttons: rounded-full for primary actions, rounded-lg for secondary.",
+  "conventions": {
+    "styling": "Tailwind CSS with design tokens — use token class names, not hardcoded hex values",
+    "units": "rem only — use pxToRem() utility from @/shared/lib/utils, never write px directly",
+    "imports": "Absolute paths with @/ prefix for all project files",
+    "stateManagement": "Zustand — import from @/shared/store or feature-specific stores",
+    "dataFetching": "TanStack React Query v5 — use useQuery/useMutation hooks"
+  },
+  "componentPatterns": {
+    "shared": "src/shared/ui/{name}/",
+    "features": "src/features/{name}/ui/",
+    "entities": "src/entities/{name}/ui/",
+    "widgets": "src/widgets/{name}/"
+  }
+}

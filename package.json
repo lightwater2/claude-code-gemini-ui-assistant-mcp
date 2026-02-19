@@ -1,0 +1,54 @@
+{
+  "name": "claude-code-gemini-ui-assistant-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for Claude Code - delegates React component generation to Gemini",
+  "type": "module",
+  "main": "build/index.js",
+  "bin": {
+    "gemini-ui-mcp": "build/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node build/index.js",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "claude",
+    "gemini",
+    "react",
+    "ui",
+    "component",
+    "tailwind"
+  ],
+  "author": "lightwater2",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lightwater2/claude-code-gemini-ui-assistant-mcp"
+  },
+  "homepage": "https://github.com/lightwater2/claude-code-gemini-ui-assistant-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/lightwater2/claude-code-gemini-ui-assistant-mcp/issues"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@google/genai": "^1.41.0",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "build/",
+    "assets/",
+    "README.md",
+    "LICENSE",
+    ".gemini-ui-config.example.json"
+  ]
+}
