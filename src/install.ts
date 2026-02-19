@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, copyFileSync } from 'fs';
+import { existsSync, mkdirSync, copyFileSync, rmSync } from 'fs';
 import { resolve, dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { homedir } from 'os';
@@ -202,4 +202,60 @@ export async function runInstall(args: string[]) {
     console.log(`\n⚠️  Auto-registration failed. Run manually:`);
     printFallbackCommand(apiKey);
   }
+}
+
+// ─── Uninstall ─────────────────────────────────────────────────────────────
+
+export function runUninstall() {
+  const insideSession = !!process.env.CLAUDECODE;
+
+  console.log(`\nUninstalling ${PACKAGE_NAME}...\n`);
+
+  // Step 1: Remove skill files (user-level and project-level)
+  const skillPaths = [
+    join(homedir(), '.claude', 'skills', 'gemini-ui.md'),
+    join(process.cwd(), '.claude', 'skills', 'gemini-ui.md'),
+  ];
+
+  let skillRemoved = false;
+  for (const p of skillPaths) {
+    if (existsSync(p)) {
+      rmSync(p);
+      console.log(`✅ Skill removed: ${p}`);
+      skillRemoved = true;
+    }
+  }
+  if (!skillRemoved) {
+    console.log(`ℹ️  Skill file not found (already removed)`);
+  }
+
+  // Step 2: Remove MCP server registration
+  if (insideSession) {
+    console.log(`\n⚠️  Running inside Claude Code — cannot auto-unregister.`);
+    console.log(`   Run this in a new terminal:\n`);
+    console.log(`   claude mcp remove gemini-ui\n`);
+    return;
+  }
+
+  process.stdout.write(`⏳ Removing MCP server registration...\n`);
+  const result = spawnSync(
+    'claude',
+    ['mcp', 'remove', 'gemini-ui', '--scope', 'user'],
+    { encoding: 'utf-8', stdio: 'pipe' }
+  );
+
+  if (result.error || result.status !== 0) {
+    const msg = result.stderr?.trim() || result.error?.message || '';
+    if (msg.includes('not found') || msg.includes('No MCP')) {
+      console.log(`ℹ️  MCP server was not registered (already removed)`);
+    } else {
+      console.log(`⚠️  Could not remove MCP registration: ${msg}`);
+      console.log(`   Run manually: claude mcp remove gemini-ui`);
+    }
+  } else {
+    console.log(`✅ MCP server unregistered: gemini-ui`);
+  }
+
+  console.log(`\nUninstall complete. To reinstall:\n`);
+  console.log(`  npx ${PACKAGE_NAME} install\n`);
 }

@@ -15,7 +15,7 @@ import {
   ReviewDesignSchema,
   reviewDesign,
 } from './tools/review-design.js';
-import { runInstall } from './install.js';
+import { runInstall, runUninstall } from './install.js';
 
 const cliArgs = process.argv.slice(2);
 
@@ -27,6 +27,10 @@ if (cliArgs[0] === 'install') {
       process.stderr.write(`Install failed: ${err}\n`);
       process.exit(1);
     });
+} else if (cliArgs[0] === 'uninstall') {
+  // Uninstall subcommand: remove skill + unregister MCP
+  runUninstall();
+  process.exit(0);
 } else {
   // Default: start MCP server on stdio
   startServer().catch((err) => {
