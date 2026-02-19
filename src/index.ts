@@ -17,14 +17,25 @@ import {
 } from './tools/review-design.js';
 import { runInstall } from './install.js';
 
-// Route: install subcommand vs MCP server
 const cliArgs = process.argv.slice(2);
+
 if (cliArgs[0] === 'install') {
-  runInstall(cliArgs.slice(1));
-  process.exit(0);
+  // Install subcommand: copy skill + register MCP
+  runInstall(cliArgs.slice(1))
+    .then(() => process.exit(0))
+    .catch((err) => {
+      process.stderr.write(`Install failed: ${err}\n`);
+      process.exit(1);
+    });
+} else {
+  // Default: start MCP server on stdio
+  startServer().catch((err) => {
+    process.stderr.write(`[gemini-ui-mcp] Fatal error: ${err}\n`);
+    process.exit(1);
+  });
 }
 
-async function main() {
+async function startServer() {
   const config = loadConfig();
   const client = createClient(config);
 
@@ -45,15 +56,10 @@ async function main() {
     async (input) => {
       try {
         const code = await generateComponent(client, config, input);
-        return {
-          content: [{ type: 'text', text: code }],
-        };
+        return { content: [{ type: 'text', text: code }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        return {
-          content: [{ type: 'text', text: `Error: ${message}` }],
-          isError: true,
-        };
+        return { content: [{ type: 'text', text: `Error: ${message}` }], isError: true };
       }
     }
   );
@@ -70,15 +76,10 @@ async function main() {
     async (input) => {
       try {
         const code = await modifyComponent(client, config, input);
-        return {
-          content: [{ type: 'text', text: code }],
-        };
+        return { content: [{ type: 'text', text: code }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        return {
-          content: [{ type: 'text', text: `Error: ${message}` }],
-          isError: true,
-        };
+        return { content: [{ type: 'text', text: `Error: ${message}` }], isError: true };
       }
     }
   );
@@ -95,27 +96,15 @@ async function main() {
     async (input) => {
       try {
         const review = await reviewDesign(client, config, input);
-        return {
-          content: [{ type: 'text', text: review }],
-        };
+        return { content: [{ type: 'text', text: review }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        return {
-          content: [{ type: 'text', text: `Error: ${message}` }],
-          isError: true,
-        };
+        return { content: [{ type: 'text', text: `Error: ${message}` }], isError: true };
       }
     }
   );
 
-  // Connect via stdio transport
   const transport = new StdioServerTransport();
   await server.connect(transport);
-
   process.stderr.write('[gemini-ui-mcp] Server started on stdio transport\n');
 }
-
-main().catch((err) => {
-  process.stderr.write(`[gemini-ui-mcp] Fatal error: ${err}\n`);
-  process.exit(1);
-});
