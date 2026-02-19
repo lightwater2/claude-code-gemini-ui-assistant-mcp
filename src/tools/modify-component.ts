@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { GoogleGenAI } from '@google/genai';
 import { generateContent } from '../gemini-client.js';
 import { buildSystemPrompt } from '../system-prompt.js';
+import { MODEL } from '../config.js';
 import type { Config } from '../config.js';
 
 export const ModifyComponentSchema = z.object({
@@ -39,7 +40,7 @@ export async function modifyComponent(
   return generateContent(client, {
     systemPrompt,
     userPrompt,
-    model: config.defaultModel,
+    model: MODEL,
     temperature: 0.5,
   });
 }

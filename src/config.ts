@@ -16,8 +16,9 @@ export interface ComponentPatterns {
   widgets?: string;
 }
 
+export const MODEL = 'gemini-3.1-pro-preview' as const;
+
 export interface GeminiUiConfig {
-  model?: string;
   designContext?: string;
   conventions?: ProjectConventions;
   componentPatterns?: ComponentPatterns;
@@ -31,7 +32,6 @@ export interface Config {
     location: string;
     applicationCredentials?: string;
   };
-  defaultModel: string;
   projectConfig: GeminiUiConfig;
 }
 
@@ -67,7 +67,6 @@ export function loadConfig(): Config {
       location: process.env.GOOGLE_CLOUD_LOCATION || 'us-central1',
       applicationCredentials: process.env.GOOGLE_APPLICATION_CREDENTIALS,
     },
-    defaultModel: projectConfig.model || 'gemini-2.5-flash',
     projectConfig,
   };
 }

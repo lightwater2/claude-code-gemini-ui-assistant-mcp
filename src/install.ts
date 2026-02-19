@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import { homedir } from 'os';
 import { spawnSync } from 'child_process';
 import { GoogleGenAI } from '@google/genai';
+import { MODEL } from './config.js';
 
 const PACKAGE_NAME = 'claude-code-gemini-ui-assistant-mcp';
 
@@ -97,7 +98,7 @@ async function validateApiKey(apiKey: string): Promise<boolean> {
   try {
     const client = new GoogleGenAI({ apiKey });
     await client.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: MODEL,
       contents: [{ role: 'user', parts: [{ text: 'hi' }] }],
       config: { maxOutputTokens: 1 },
     });

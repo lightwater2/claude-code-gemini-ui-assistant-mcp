@@ -192,15 +192,9 @@ If no config file is found, the server runs in generic React + Tailwind mode.
 
 ---
 
-## Supported Models
+## Model
 
-| Model | Notes |
-|-------|-------|
-| `gemini-2.5-flash` | Default — fast, capable, cost-effective |
-| `gemini-2.5-pro` | Higher quality, slower |
-| `gemini-2.0-flash` | Stable alternative |
-
-Set in `.gemini-ui-config.json` → `"model"` field.
+This package uses **`gemini-3.1-pro-preview`** exclusively. The model is hardcoded and not configurable.
 
 ---
 
