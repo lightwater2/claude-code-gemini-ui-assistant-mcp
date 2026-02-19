@@ -198,6 +198,76 @@ This package uses **`gemini-3.1-pro-preview`** exclusively. The model is hardcod
 
 ---
 
+## Recommended CLAUDE.md Setup
+
+To make the `/gemini-ui` skill trigger automatically on frontend tasks — without having to invoke it manually every time — add the following to your project's `CLAUDE.md`:
+
+````markdown
+## UI Component Development
+
+When implementing UI components or frontend features, use the `gemini_generate_component`,
+`gemini_modify_component`, and `gemini_review_design` MCP tools to delegate component
+code generation to Gemini. Claude focuses on page structure, file placement, imports,
+routing, and orchestration.
+
+### Frontend Stack
+
+<!-- Customize this for your project -->
+- Framework: React 18 + TypeScript
+- Styling: Tailwind CSS with design tokens
+- Units: rem only (use pxToRem utility)
+- Imports: absolute paths with @/ prefix
+- State: Zustand
+- Data fetching: TanStack React Query v5
+
+Always pass the stack and relevant conventions through `designNotes` when calling Gemini tools.
+````
+
+**Why this works:** Claude reads `CLAUDE.md` at session start. With explicit instructions to use Gemini tools for UI work, Claude will automatically delegate component generation without needing `/gemini-ui` to be invoked manually.
+
+### Stack Examples
+
+<details>
+<summary>Vue 3 + Vite</summary>
+
+```markdown
+### Frontend Stack
+- Framework: Vue 3 (Composition API) + TypeScript
+- Styling: UnoCSS
+- State: Pinia
+- Data fetching: VueUse + native fetch
+```
+
+</details>
+
+<details>
+<summary>Svelte 5</summary>
+
+```markdown
+### Frontend Stack
+- Framework: Svelte 5 (runes)
+- Styling: CSS Modules
+- State: Svelte stores
+```
+
+</details>
+
+<details>
+<summary>No framework (plain HTML/JS)</summary>
+
+```markdown
+### Frontend Stack
+- Plain HTML + vanilla JavaScript (ES2020+)
+- CSS with custom properties
+- No build tools, no frameworks
+```
+
+</details>
+
+If no stack is specified anywhere, Gemini defaults to **plain HTML + vanilla JS + CSS**.
+
+---
+
 ## Example Workflow
 
 ```
