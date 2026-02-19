@@ -43,34 +43,45 @@ function promptSecret(label: string): Promise<string> {
     process.stdin.resume();
     process.stdin.setEncoding('utf8');
 
-    const onData = (char: string) => {
-      switch (char) {
-        case '\r':
-        case '\n':
-        case '\u0004': // Ctrl+D
-          process.stdin.setRawMode(false);
-          process.stdin.pause();
-          process.stdin.removeListener('data', onData);
-          process.stdout.write('\n');
-          resolve(chars.join(''));
-          break;
+    let done = false;
 
-        case '\u0003': // Ctrl+C
-          process.stdout.write('\n');
-          process.exit(0);
-          break;
+    const onData = (data: string) => {
+      // Paste sends all characters in one chunk — iterate each one
+      for (const char of data) {
+        if (done) break;
 
-        case '\u007f': // Backspace (macOS)
-        case '\b':     // Backspace (Windows)
-          if (chars.length > 0) {
-            chars.pop();
-            process.stdout.write('\b \b');
-          }
-          break;
+        switch (char) {
+          case '\r':
+          case '\n':
+          case '\u0004': // Ctrl+D
+            done = true;
+            process.stdin.setRawMode(false);
+            process.stdin.pause();
+            process.stdin.removeListener('data', onData);
+            process.stdout.write('\n');
+            resolve(chars.join(''));
+            break;
 
-        default:
-          chars.push(char);
-          process.stdout.write('*');
+          case '\u0003': // Ctrl+C
+            process.stdout.write('\n');
+            process.exit(0);
+            break;
+
+          case '\u007f': // Backspace (macOS)
+          case '\b':     // Backspace (Windows)
+            if (chars.length > 0) {
+              chars.pop();
+              process.stdout.write('\b \b');
+            }
+            break;
+
+          default:
+            // Only accept printable ASCII (skip terminal escape sequences)
+            if (char >= ' ' && char <= '~') {
+              chars.push(char);
+              process.stdout.write('*');
+            }
+        }
       }
     };
 
